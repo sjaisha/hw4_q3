@@ -1,0 +1,216 @@
+<!-- bubble chart with mouseover -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 3px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+            margin-top: 10;
+        }
+
+
+        h1 {
+            /* border: 2px solid green; */
+        }
+        .pop-up {
+            position: absolute;
+            border: 1px solid black;
+            border-radius: 1px;
+            width: 200px;
+            /* height: 10px; */
+            pointer-events: none;
+            background-color: white;
+            padding: 10px
+
+        }
+    </style>
+    <!-- add your script blocks at the end -->
+
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+           Thousands of children lived under poverty in 2019
+        </h1>
+
+        <svg width="1050px" height="750px">
+
+        </svg>
+        <div class="pop-up">
+        </div>
+    </div>
+</body>
+
+
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+<script src="https://d3js.org/d3.v6.min.js"></script>
+
+<!-- load topojson script -->
+<script src="https://unpkg.com/topojson@3"></script>
+
+<script>
+    // console.log({ d3 })
+    // console.log({ topojson })
+
+    // //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+    // Promise.all([ //waits for all the data to load, then when loaded will return it all in one array called res
+    //     d3.json('poverty_chart.json'),
+    // ])
+    //     .then(ready)
+    //     .catch((err) => {
+    //         console.log(err);
+    //     });
+    d3.json("bubble.json").then(function(data) {
+        console.log("loaded")
+        // console.log(data)
+    
+
+    // function ready(res) {
+    //     console.log(res[0])
+    //     let raw = res[0]
+
+        let counties = topojson.feature(data, data.objects.county)
+        let states = topojson.feature(data, data.objects.state)
+        // console.log(counties)
+
+        let width = 1050;
+        let height = 750;
+        let margin = {top: 50, right:10, bottom:0, left:20};
+
+        // console.log(counties, states)
+
+        let svg = d3.select("body").select("svg")
+        
+
+        let projection = d3.geoIdentity()
+            .fitSize([width, height], states)
+            .reflectY(true)
+
+        //path function
+        let path = d3.geoPath(projection)
+
+        svg.append("g")
+            .attr("class", "states")
+            .selectAll("path")
+            .data(states.features)
+            .join("path")
+            .attr("d", path)
+            .style("fill", "lightgrey")
+            .style("stroke", "black")
+            
+        let circles = svg.append("g")
+            .selectAll(".circles")
+            .data(counties.features.filter(d => d.geometry !=null).sort((a, b) => d3.descending(a.properties.pop_18_in_poverty,b.properties.GEOID)))
+            .join("circle")
+            .attr("class", function(d){ return "circles p-" + d.properties.GEOID})
+            .attr("fill", "orange")
+            .attr("stroke", "white")
+            .attr("stroke-width", 0.5)
+            .style("fill-opacity", .5)
+            .attr("transform", d=> `translate(${projection([d.geometry.coordinates[0], d.geometry.coordinates[1]])})`)
+            .attr("r", d=> Math.sqrt(d.properties.pop_18_in_poverty/300))
+
+        let popup = d3.select(".pop-up");
+
+        circles.on("mouseover", (event,d)=> {
+            // console.log(event)
+            // console.log(d)
+            
+            circles
+                .style("stroke", "white")
+                .style("stroke-width", .5)
+                .style("fill", "orange")
+                .style("fill-opacity", .5)
+
+            svg.select(".p-" + d.properties.GEOID)
+                .style ("stroke", "black")
+                .style("stroke-width", 2)
+                .style("fill", "yellow")
+                .style("fill-opacity", 1)
+                .raise()
+
+            var lang1 = d.properties.Geo_QName
+            
+            // lang1.attr("class", "red")
+
+            let lang = "In " + lang1 + ", " + d.properties.pop_18_in_poverty + " children live in poverty."
+            console.log({lang})
+
+            popup
+                .style("opacity", 0.85)
+                .style("left", (event.x) +"px")
+                .style("top", (event.y) + "px")
+                .html(lang)
+
+        })
+
+
+        // let innerlines = topojson.mesh(raw, raw.objects.state, function (a, b) {
+        //     return a != b;
+        // });
+
+        // svg
+        //     .selectAll(".counties")
+        //     .data(bubbles.features)
+        //     .join("path")
+        //     .attr("d", path)
+        //     .style("fill", "none")
+        //     .style("stroke", "#333")
+        //     .style("stroke-width", .2)
+
+        // svg
+        //     .selectAll(".states")
+        //     .data(state.features)
+        //     .join("path")
+        //     .attr("d", path)
+        //     .style("fill", "grey")
+        //     .style("stroke", "red")
+        //     .style("stroke-width", "1")
+
+
+        // let states = svg
+        //     .append("path")
+        //     .attr("d", path(innerlines))
+        //     .style("fill", "none")
+        //     .style("stroke", "#333")
+        //     .style("stroke-width", 1)
+        //     .style("pointer-events", "none")
+
+            
+        // let counties = svg
+        //     .selectAll(".counties")
+        //     .data(bubbles.features)
+        //     .join("circle")
+        //     .attr("r", 5)
+        //     .attr("cx", d => {
+        //         return path.centroid(d)[0]
+        //     })
+        //     .attr("cy", d => {
+        //         return path.centroid(d)[1]
+        //     })
+        //     .style("fill", "red")
+        //     .style("stroke", "#ccc")
+        //     .style("stroke-width", .2)
+
+    })
+
+
+
+
+
+
+
+
+</script>
